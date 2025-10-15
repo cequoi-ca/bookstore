@@ -1,7 +1,37 @@
 ### BookStore API Tests
 ### VS Code REST Client test file
 
-### Test 1: Get all books through Nginx (main route)
+### Test 1: List all books (POST) through Nginx
+POST http://localhost/api/books/list
+Content-Type: application/json
+
+[]
+
+###
+
+### Test 2: List books with price filter
+POST http://localhost/api/books/list
+Content-Type: application/json
+
+[{"from": 20, "to": 40}]
+
+###
+
+### Test 3: List books by author
+POST http://localhost/api/books/list
+Content-Type: application/json
+
+[{"author": "Christie"}]
+
+###
+
+### Test 4: Get book by ID
+GET http://localhost/api/books/68efb6b6b604abcce2ce5f47
+Accept: application/json
+
+###
+
+### Test 5: Get all books through Nginx (legacy endpoint)
 GET http://localhost/api/books
 Accept: application/json
 

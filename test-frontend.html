@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Frontend API</title>
+</head>
+<body>
+    <h1>Testing Book API</h1>
+    <div id="result">Loading...</div>
+
+    <script>
+        async function testAPI() {
+            try {
+                const response = await fetch('http://localhost/api/books/list', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify([])
+                });
+
+                const books = await response.json();
+                const resultDiv = document.getElementById('result');
+
+                if (books && books.length > 0) {
+                    let html = '<h2>Books Found: ' + books.length + '</h2>';
+                    html += '<table border="1"><tr><th>Name</th><th>Author</th><th>Price</th></tr>';
+                    books.forEach(book => {
+                        html += `<tr><td>${book.name}</td><td>${book.author}</td><td>$${book.price}</td></tr>`;
+                    });
+                    html += '</table>';
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = 'No books found';
+                }
+            } catch (error) {
+                document.getElementById('result').innerHTML = 'Error: ' + error.message;
+            }
+        }
+
+        testAPI();
+    </script>
+</body>
+</html>
