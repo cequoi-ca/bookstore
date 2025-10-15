@@ -1,0 +1,46 @@
+### BookStore API Tests
+### VS Code REST Client test file
+
+### Test 1: Get all books through Nginx (main route)
+GET http://localhost/api/books
+Accept: application/json
+
+###
+
+### Test 2: Direct service test - Get all books
+GET http://localhost:3000/books
+Accept: application/json
+
+###
+
+### Test 3: Health check through Nginx
+GET http://localhost/health
+Accept: application/json
+
+###
+
+### Test 4: Service health check (direct)
+GET http://localhost:3000/health
+Accept: application/json
+
+###
+
+### Test 5: Test CORS headers through Nginx
+OPTIONS http://localhost/api/books
+Origin: http://localhost:3000
+Access-Control-Request-Method: GET
+Access-Control-Request-Headers: Content-Type
+
+###
+
+### Test 6: Frontend access test
+GET http://localhost/
+Accept: text/html
+
+###
+
+### Test 7: Test non-existent endpoint (should return 404)
+GET http://localhost/api/nonexistent
+Accept: application/json
+
+###

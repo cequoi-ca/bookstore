@@ -1,0 +1,3 @@
+[submodule "services/books-ui"]
+	path = services/books-ui
+	url = https://github.com/cequoi-ca/books-ui.git
