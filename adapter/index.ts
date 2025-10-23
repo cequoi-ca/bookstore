@@ -1,122 +1,224 @@
-export type BookID = string
+/**
+ * Unified Ecommerce Adapter
+ * Provides complete API for bookstore ecommerce operations
+ */
+
+// Re-export types for convenience
+export type BookID = string;
+export type ShelfId = string;
+export type OrderId = string;
 
 export interface Book {
-  id?: BookID
-  name: string
-  author: string
-  description: string
-  price: number
-  image: string
-};
+  id?: BookID;
+  name: string;
+  author: string;
+  description: string;
+  price: number;
+  image: string;
+}
 
 export interface Filter {
-  from?: number
-  to?: number
-  name?: string
-  author?: string
-};
+  from?: number;
+  to?: number;
+  name?: string;
+  author?: string;
+}
 
-// If multiple filters are provided, any book that matches at least one of them should be returned
-// Within a single filter, a book would need to match all the given conditions
-async function listBooks (filters?: Filter[]): Promise<Book[]> {
-  // We then make the request
-  const result = await fetch('/api/books/list', { body: JSON.stringify(filters ?? []), method: 'POST' })
+export interface ShelfLocation {
+  shelf: ShelfId;
+  count: number;
+}
+
+export interface Order {
+  orderId: OrderId;
+  books: Record<BookID, number>;
+}
+
+export interface OrderFulfillment {
+  book: BookID;
+  shelf: ShelfId;
+  numberOfBooks: number;
+}
+
+// ============================================
+// Catalog Management (Public)
+// ============================================
+
+/**
+ * List all books with optional filtering
+ * If multiple filters are provided, any book that matches at least one of them should be returned
+ * Within a single filter, a book would need to match all the given conditions
+ */
+async function listBooks(filters?: Filter[]): Promise<Book[]> {
+  const result = await fetch('/api/books/list', {
+    body: JSON.stringify(filters ?? []),
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
 
   if (result.ok) {
-    // And if it is valid, we parse the JSON result and return it.
-    return await result.json() as Book[]
+    return await result.json() as Book[];
   } else {
-    throw new Error('Failed to fetch books')
+    throw new Error('Failed to fetch books');
   }
 }
 
-async function createOrUpdateBook (book: Book): Promise<BookID> {
-    throw new Error('Failed to fetch books')
-}
+/**
+ * Get a single book by its ID
+ */
+async function lookupBookById(bookId: BookID): Promise<Book> {
+  const result = await fetch(`/api/books/${bookId}`);
 
-async function removeBook (book: BookID): Promise<void> {
-    throw new Error('Failed to fetch books')
-}
-
-async function lookupBookById (book: BookID): Promise<Book> {
-  const result = await fetch(`/api/books/${book}`)
   if (result.ok) {
-    return await result.json() as Book
+    return await result.json() as Book;
   } else {
-    throw new Error('Couldnt Find Book')
+    throw new Error(`Could not find book with ID: ${bookId}`);
   }
 }
 
-export type ShelfId = string
-export type OrderId = string
+// ============================================
+// Book CRUD (Admin)
+// ============================================
 
-async function placeBooksOnShelf (bookId: BookID, numberOfBooks: number, shelf: ShelfId): Promise<void> {
-  const result = await fetch(`/api/warehouse/${bookId}/${shelf}/${numberOfBooks}`, { method: 'put' })
+/**
+ * Create a new book or update an existing one
+ * @throws Error - Currently not implemented in backend
+ */
+async function createOrUpdateBook(book: Book): Promise<BookID> {
+  throw new Error('Book create/update not yet implemented in backend');
+}
+
+/**
+ * Remove a book from the catalog
+ * @throws Error - Currently not implemented in backend
+ */
+async function removeBook(bookId: BookID): Promise<void> {
+  throw new Error('Book removal not yet implemented in backend');
+}
+
+// ============================================
+// Inventory Management (Warehouse)
+// ============================================
+
+/**
+ * Add books to a warehouse shelf
+ */
+async function placeBooksOnShelf(bookId: BookID, numberOfBooks: number, shelf: ShelfId): Promise<void> {
+  const result = await fetch(`/api/warehouse/${bookId}/${shelf}/${numberOfBooks}`, {
+    method: 'PUT'
+  });
+
   if (!result.ok) {
-    throw new Error('Couldnt Place on Shelf')
+    throw new Error(`Could not place books on shelf: ${await result.text()}`);
   }
 }
 
-async function orderBooks (order: BookID[]): Promise<{ orderId: OrderId }> {
-  const result = await fetch('/api/order', {
-    method: 'post',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ order })
-  })
-  if (!result.ok) {
-    throw new Error('Couldnt Place on Shelf')
-  }
-  return { orderId: await result.text() }
-}
+/**
+ * Find all shelf locations where a book is stocked
+ */
+async function findBookOnShelf(bookId: BookID): Promise<ShelfLocation[]> {
+  const result = await fetch(`/api/warehouse/${bookId}`);
 
-async function findBookOnShelf (book: BookID): Promise<Array<{ shelf: ShelfId, count: number }>> {
-  const result = await fetch(`/api/warehouse/${book}`)
   if (result.ok) {
-    const results = (await result.json()) as Record<ShelfId, number>
-    const shelfArray: Array<{ shelf: ShelfId, count: number }> = []
+    const results = (await result.json()) as Record<ShelfId, number>;
+    const shelfArray: ShelfLocation[] = [];
+
     for (const shelf of Object.keys(results)) {
       shelfArray.push({
         shelf,
         count: results[shelf]
-      })
+      });
     }
-    return shelfArray
+
+    return shelfArray;
   } else {
-    throw new Error('Couldnt Find Book')
+    throw new Error(`Could not find book on shelves: ${bookId}`);
   }
 }
 
-async function fulfilOrder (order: OrderId, booksFulfilled: Array<{ book: BookID, shelf: ShelfId, numberOfBooks: number }>): Promise<void> {
-  const result = await fetch(`/api/order/${order}`, {
-    method: 'put',
+// ============================================
+// Customer Orders
+// ============================================
+
+/**
+ * Create a new customer order
+ */
+async function orderBooks(order: BookID[]): Promise<{ orderId: OrderId }> {
+  const result = await fetch('/api/order', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ order })
+  });
+
+  if (!result.ok) {
+    throw new Error(`Could not place order: ${await result.text()}`);
+  }
+
+  return { orderId: await result.text() };
+}
+
+/**
+ * List all pending orders
+ */
+async function listOrders(): Promise<Order[]> {
+  const result = await fetch('/api/order');
+
+  if (result.ok) {
+    return await result.json() as Order[];
+  } else {
+    throw new Error('Could not fetch orders');
+  }
+}
+
+// ============================================
+// Order Fulfillment (Warehouse)
+// ============================================
+
+/**
+ * Fulfill an order by picking books from shelves
+ */
+async function fulfilOrder(orderId: OrderId, booksFulfilled: OrderFulfillment[]): Promise<void> {
+  const result = await fetch(`/api/order/${orderId}`, {
+    method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ booksFulfilled })
-  })
+  });
+
   if (!result.ok) {
-    throw new Error(`Couldnt Fulfil ${await result.text()}`)
+    throw new Error(`Could not fulfill order: ${await result.text()}`);
   }
 }
 
-async function listOrders (): Promise<Array<{ orderId: OrderId, books: Record<BookID, number> }>> {
-  const result = await fetch('/api/order')
-  if (result.ok) {
-    return await result.json() as Array<{ orderId: OrderId, books: Record<BookID, number> }>
-  } else {
-    throw new Error('Couldnt Find Book')
-  }
-}
+// ============================================
+// Adapter Export
+// ============================================
 
-const assignment = 'assignment-4'
-
-export default {
-  assignment,
+/**
+ * Unified Ecommerce Adapter
+ * Provides all functionality for a complete bookstore ecommerce system
+ */
+const ecommerceAdapter = {
+  // Catalog Management
   listBooks,
+  lookupBookById,
+
+  // Book CRUD (Admin)
   createOrUpdateBook,
   removeBook,
-  lookupBookById,
+
+  // Inventory Management
   placeBooksOnShelf,
-  orderBooks,
   findBookOnShelf,
+
+  // Customer Orders
+  orderBooks,
+  listOrders,
+
+  // Order Fulfillment
   fulfilOrder,
-  listOrders
-}
+
+  // Backward compatibility
+  assignment: 'assignment-4' as const
+};
+
+export default ecommerceAdapter;
