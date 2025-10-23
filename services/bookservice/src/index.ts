@@ -2,7 +2,9 @@ import Koa from 'koa';
 import cors from '@koa/cors';
 import bodyParser from 'koa-bodyparser';
 import logger from 'koa-logger';
-import router from './routes/books';
+import booksRouter from './routes/books';
+import ordersRouter from './routes/orders';
+import warehouseRouter from './routes/warehouse';
 import { errorMiddleware } from './middleware/error';
 import { connectToDatabase } from './config/database';
 import * as dotenv from 'dotenv';
@@ -20,8 +22,12 @@ app.use(bodyParser());
 app.use(errorMiddleware);
 
 // Routes
-app.use(router.routes());
-app.use(router.allowedMethods());
+app.use(booksRouter.routes());
+app.use(booksRouter.allowedMethods());
+app.use(ordersRouter.routes());
+app.use(ordersRouter.allowedMethods());
+app.use(warehouseRouter.routes());
+app.use(warehouseRouter.allowedMethods());
 
 // Start server
 const startServer = async () => {

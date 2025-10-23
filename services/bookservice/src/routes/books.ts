@@ -147,6 +147,115 @@ router.get('/books', async (ctx) => {
   }
 });
 
+// POST /books - Create or update a book
+router.post('/books', async (ctx) => {
+  try {
+    const db = getDatabase();
+    const bookData = ctx.request.body as Partial<IBook> & { id?: string };
+
+    // Validate required fields
+    if (!bookData.name || !bookData.author || !bookData.price) {
+      ctx.status = 400;
+      ctx.body = { error: 'Missing required fields: name, author, and price are required' };
+      return;
+    }
+
+    // If id is provided, update existing book
+    if (bookData.id) {
+      const bookId = bookData.id;
+
+      // Validate ObjectId format
+      if (!ObjectId.isValid(bookId)) {
+        ctx.status = 400;
+        ctx.body = { error: 'Invalid book ID format' };
+        return;
+      }
+
+      const updateData: Partial<IBook> = {
+        name: bookData.name,
+        author: bookData.author,
+        description: bookData.description || '',
+        price: bookData.price,
+        image: bookData.image || ''
+      };
+
+      const result = await db.collection<IBook>('books').findOneAndUpdate(
+        { _id: new ObjectId(bookId) },
+        { $set: updateData },
+        { returnDocument: 'after' }
+      );
+
+      if (!result) {
+        ctx.status = 404;
+        ctx.body = { error: 'Book not found' };
+        return;
+      }
+
+      ctx.body = result._id?.toString();
+      ctx.status = 200;
+    } else {
+      // Create new book
+      const newBook: Omit<IBook, '_id'> = {
+        name: bookData.name,
+        author: bookData.author,
+        description: bookData.description || '',
+        price: bookData.price,
+        image: bookData.image || ''
+      };
+
+      const result = await db.collection<IBook>('books').insertOne(newBook as IBook);
+
+      ctx.body = result.insertedId.toString();
+      ctx.status = 201;
+    }
+  } catch (error: any) {
+    console.error('Error creating/updating book:', error);
+    ctx.status = 500;
+    ctx.body = {
+      error: {
+        message: 'Failed to create/update book',
+        details: error.message
+      }
+    };
+  }
+});
+
+// DELETE /books/:id - Delete a book
+router.delete('/books/:id', async (ctx) => {
+  try {
+    const db = getDatabase();
+    const bookId = ctx.params.id;
+
+    // Validate ObjectId format
+    if (!ObjectId.isValid(bookId)) {
+      ctx.status = 400;
+      ctx.body = { error: 'Invalid book ID format' };
+      return;
+    }
+
+    const result = await db.collection<IBook>('books').deleteOne({
+      _id: new ObjectId(bookId)
+    });
+
+    if (result.deletedCount === 0) {
+      ctx.status = 404;
+      ctx.body = { error: 'Book not found' };
+      return;
+    }
+
+    ctx.status = 204;
+  } catch (error: any) {
+    console.error('Error deleting book:', error);
+    ctx.status = 500;
+    ctx.body = {
+      error: {
+        message: 'Failed to delete book',
+        details: error.message
+      }
+    };
+  }
+});
+
 // GET /health - Health check endpoint
 router.get('/health', async (ctx) => {
   try {

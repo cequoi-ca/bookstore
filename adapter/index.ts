@@ -82,18 +82,34 @@ async function lookupBookById(bookId: BookID): Promise<Book> {
 
 /**
  * Create a new book or update an existing one
- * @throws Error - Currently not implemented in backend
  */
 async function createOrUpdateBook(book: Book): Promise<BookID> {
-  throw new Error('Book create/update not yet implemented in backend');
+  const result = await fetch('/api/books', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(book)
+  });
+
+  if (result.ok) {
+    return await result.text() as BookID;
+  } else {
+    const errorText = await result.text();
+    throw new Error(`Failed to create/update book: ${errorText}`);
+  }
 }
 
 /**
  * Remove a book from the catalog
- * @throws Error - Currently not implemented in backend
  */
 async function removeBook(bookId: BookID): Promise<void> {
-  throw new Error('Book removal not yet implemented in backend');
+  const result = await fetch(`/api/books/${bookId}`, {
+    method: 'DELETE'
+  });
+
+  if (!result.ok && result.status !== 204) {
+    const errorText = await result.text();
+    throw new Error(`Failed to remove book: ${errorText}`);
+  }
 }
 
 // ============================================
@@ -215,10 +231,7 @@ const ecommerceAdapter = {
   listOrders,
 
   // Order Fulfillment
-  fulfilOrder,
-
-  // Backward compatibility
-  assignment: 'assignment-4' as const
+  fulfilOrder
 };
 
 export default ecommerceAdapter;
