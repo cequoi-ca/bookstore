@@ -75,12 +75,5 @@ export default defineConfig({
 
   // Run local dev server before starting tests
   // Only if not in CI (CI will start services separately)
-  ...(process.env.CI ? {} : {
-    webServer: {
-      command: 'docker compose up -d',
-      port: 80,
-      timeout: 120000,
-      reuseExistingServer: true,
-    },
-  }),
+  // Note: Start services manually with `docker compose up -d` before running tests locally
 });

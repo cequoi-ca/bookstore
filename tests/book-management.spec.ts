@@ -18,8 +18,8 @@ test.describe('Book Management', () => {
     await page.goto('/');
     await page.getByRole('link', { name: 'Manage Books' }).click();
 
-    // Verify "Add Book" form is visible
-    await expect(page.getByText('Add Book')).toBeVisible();
+    // Verify "Add Book" heading is visible
+    await expect(page.getByRole('heading', { name: 'Add Book' })).toBeVisible();
 
     // Check for form fields (they should exist even if functionality isn't implemented)
     await expect(page.locator('input[name="name"]')).toBeVisible();
