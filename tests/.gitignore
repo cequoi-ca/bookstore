@@ -1,0 +1,26 @@
+# Playwright Test Results
+test-results/
+playwright-report/
+playwright/.cache/
+
+# Screenshots (keep directory but ignore generated screenshots)
+screenshots/*.png
+screenshots/*.jpg
+!screenshots/.gitkeep
+
+# Node modules
+node_modules/
+
+# Environment files
+.env
+.env.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

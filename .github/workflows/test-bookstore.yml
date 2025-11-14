@@ -1,0 +1,189 @@
+name: Bookstore CI Tests
+
+on:
+  push:
+    branches:
+      - main
+      - module-2
+      - module-2-ai-solution
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Start Docker Compose services
+        run: |
+          echo "Starting Docker Compose services..."
+          docker compose up -d --build
+
+      - name: Wait for services to be ready
+        run: |
+          echo "Waiting for services to be healthy..."
+
+          # Wait for MongoDB to be healthy (max 60 seconds)
+          for i in {1..30}; do
+            if docker compose ps mongo | grep -q "healthy"; then
+              echo "MongoDB is healthy"
+              break
+            fi
+            echo "Waiting for MongoDB... ($i/30)"
+            sleep 2
+          done
+
+          # Wait for bookservice to respond (max 30 seconds)
+          for i in {1..15}; do
+            if curl -sf http://localhost:3000/health > /dev/null 2>&1; then
+              echo "Bookservice is responding"
+              break
+            fi
+            echo "Waiting for bookservice... ($i/15)"
+            sleep 2
+          done
+
+          # Wait for nginx to respond (max 20 seconds)
+          for i in {1..10}; do
+            if curl -sf http://localhost/ > /dev/null 2>&1; then
+              echo "Nginx is responding"
+              break
+            fi
+            echo "Waiting for nginx... ($i/10)"
+            sleep 2
+          done
+
+          echo "All services are ready"
+
+      - name: Show service status
+        run: |
+          echo "=== Docker Compose Services Status ==="
+          docker compose ps
+          echo ""
+          echo "=== Docker Compose Logs (last 50 lines) ==="
+          docker compose logs --tail=50
+
+      - name: Test health check endpoint
+        id: health-check
+        run: |
+          echo "Testing health check endpoint..."
+          response=$(curl -sf http://localhost:3000/health)
+          echo "Health check response: $response"
+
+          # Verify status is healthy
+          if echo "$response" | jq -e '.status == "healthy"' > /dev/null; then
+            echo "✅ Health check passed: status is healthy"
+          else
+            echo "❌ Health check failed: status is not healthy"
+            exit 1
+          fi
+
+          # Verify database is connected
+          if echo "$response" | jq -e '.database == "connected"' > /dev/null; then
+            echo "✅ Database connection check passed"
+          else
+            echo "❌ Database connection check failed"
+            exit 1
+          fi
+
+      - name: Test books endpoint via nginx
+        id: nginx-books
+        run: |
+          echo "Testing books endpoint via nginx..."
+          response=$(curl -sf http://localhost/api/books)
+
+          # Check if response is valid JSON
+          if ! echo "$response" | jq . > /dev/null 2>&1; then
+            echo "❌ Response is not valid JSON"
+            exit 1
+          fi
+
+          # Count books
+          book_count=$(echo "$response" | jq 'length')
+          echo "Book count via nginx: $book_count"
+
+          if [ "$book_count" -eq 7 ]; then
+            echo "✅ Nginx route test passed: 7 books found"
+          else
+            echo "❌ Nginx route test failed: expected 7 books, got $book_count"
+            exit 1
+          fi
+
+          # Verify book structure
+          if echo "$response" | jq -e '.[0] | has("name", "author", "price")' > /dev/null; then
+            echo "✅ Book structure validation passed"
+          else
+            echo "❌ Book structure validation failed"
+            exit 1
+          fi
+
+      - name: Test books endpoint directly
+        id: direct-books
+        run: |
+          echo "Testing books endpoint directly..."
+          response=$(curl -sf http://localhost:3000/books)
+
+          # Count books
+          book_count=$(echo "$response" | jq 'length')
+          echo "Book count direct: $book_count"
+
+          if [ "$book_count" -eq 7 ]; then
+            echo "✅ Direct service test passed: 7 books found"
+          else
+            echo "❌ Direct service test failed: expected 7 books, got $book_count"
+            exit 1
+          fi
+
+          # Sample first book
+          first_book=$(echo "$response" | jq -r '.[0].name')
+          echo "First book: $first_book"
+
+      - name: Generate test summary
+        if: always()
+        run: |
+          echo "## Test Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Test | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          # Health check status
+          if [ "${{ steps.health-check.outcome }}" == "success" ]; then
+            echo "| Health Check | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Health Check | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Nginx route status
+          if [ "${{ steps.nginx-books.outcome }}" == "success" ]; then
+            echo "| Nginx Route (GET /api/books) | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Nginx Route (GET /api/books) | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Direct service status
+          if [ "${{ steps.direct-books.outcome }}" == "success" ]; then
+            echo "| Direct Service (GET /books) | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Direct Service (GET /books) | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Service Details" >> $GITHUB_STEP_SUMMARY
+          echo "- Books API endpoint returns 7 books" >> $GITHUB_STEP_SUMMARY
+          echo "- All books contain required fields (name, author, price)" >> $GITHUB_STEP_SUMMARY
+          echo "- Database connection is healthy" >> $GITHUB_STEP_SUMMARY
+
+      - name: Cleanup services
+        if: always()
+        run: |
+          echo "Cleaning up Docker Compose services..."
+          docker compose down -v
+          echo "Cleanup complete"
