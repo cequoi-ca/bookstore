@@ -6,9 +6,6 @@ We are building a sample bookstore in 4 modules for learning in backend developm
 The frontend is using a webUI from the repository  git@github.com:cequoi-ca/books-ui.git
 The books-ui.git repo shall be added as a git submodule under the bookstore repo in the folder services. 
 
-
-## Module 1.: Project Setup
-
 ### File Structure
 
 docker-compose.yaml
@@ -41,6 +38,8 @@ Claude code should generate an ai solution in the solution branch
 - node, npm, typescript
 - KOA http framework
 - Mongodb Database
+
+## Module 1.: Project Setup
 
 ### Runtime - Docker Compose
 Services:
@@ -155,3 +154,44 @@ Services:
    - Direct service test at http://localhost:3000/books
    - Health check verification 
 
+## Module 2 : Test and Github Actions
+
+### Current Implementation Status (from Module 1)
+- ✅ Book Service: GET /books (list all books)
+- ✅ Book Service: GET /health (health check)
+- ⏭️ Book Service: POST /books (create book) - Not yet implemented
+- ⏭️ Book Service: PUT /books/:id (update book) - Not yet implemented
+- ⏭️ Book Service: DELETE /books/:id (delete book) - Not yet implemented
+
+### Task 1. Add a .github directory and create github action workflow.
+     1.1  The workflow shall start the services in docker compose with --build flag
+     1.2  The workflow shall use curl to retrieve a list of books
+     1.3  The workflow shall validate the book count (should be 7 books)
+     1.4  The workflow shall test the health check endpoint
+     1.5  The workflow shall terminate services in docker compose with volume cleanup
+     1.6  The workflow shall generate a status report with pass/fail for each test
+
+### Task 2. Create a script directory and create a script that uses `act` to run github actions locally
+     2.1  Create scripts/run-github-actions-locally.sh
+     2.2  Script shall check if `act` is installed and provide installation instructions
+     2.3  Script shall execute the GitHub Actions workflow locally
+     2.4  Create scripts/README.md with documentation for local testing
+
+### Task 3. Update the test directory to use playwright to run test of frontend and book service.
+     3.1  The test for frontend shall take snapshots of:
+          - Book listing page
+          - Book management page (view only, CRUD tests skipped until API implemented)
+          - Shopping cart (if applicable)
+     3.2  Implement Playwright tests with the following structure:
+          - Active tests for implemented features (GET /books, listing view)
+          - Skipped tests (using test.skip()) for unimplemented features (CREATE, UPDATE, DELETE)
+          - Each skipped test should include TODO comments for future implementation
+     3.3  Update the github action workflow to use playwright instead of curl for testing
+     3.4  Upload the application snapshots and test results to the status page of the workflow
+     3.5  Generate test summary showing total/passed/failed/skipped counts
+
+### Test Organization Strategy
+- Use `test.skip()` for tests that require unimplemented API endpoints
+- Document expected behavior in skipped test comments
+- Enable tests progressively as APIs are implemented in future modules
+- Maintain full test coverage visibility even for unimplemented features  
