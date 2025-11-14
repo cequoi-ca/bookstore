@@ -117,21 +117,48 @@ The seed data includes 7 books with details like name, author, description, pric
 ### Project Structure
 ```
 bookstore/
-├── adapter/          # Frontend adapter configuration
+├── .github/
+│   └── workflows/   # CI/CD workflows
+├── adapter/         # Frontend adapter configuration
 ├── conf/            # Nginx configuration
 ├── doc/             # Documentation
-├── scripts/         # Database seed scripts
+├── scripts/         # Utility scripts and database seed scripts
 ├── services/
 │   ├── books-ui/    # Frontend (git submodule)
 │   ├── bookservice/ # Book management service
 │   ├── warehouse/   # Future: Inventory service
 │   └── order/       # Future: Order service
-└── tests/           # API tests
+└── tests/           # Playwright E2E tests
 ```
 
 ### Running Tests
 
+#### Manual API Testing
 Open `tests/api/books.http` in VS Code with REST Client extension and click "Send Request" on any test.
+
+#### Automated E2E Testing with Playwright
+
+**Prerequisites:**
+- Ensure Docker Compose services are running
+- Node.js 20+ installed
+
+**Run tests:**
+```bash
+cd tests
+npm install
+npm test                 # Run all tests
+npm run test:ui          # Run tests in UI mode
+npm run test:debug       # Run tests in debug mode
+npm run test:report      # View last test report
+```
+
+**Test Results:**
+- 12 active tests (book listing, navigation, API GET endpoints)
+- 12 skipped tests (CRUD operations awaiting API implementation)
+- Screenshots saved to `tests/screenshots/`
+- HTML report in `tests/test-results/html-report/`
+
+**Note:** Some tests are intentionally skipped using `test.skip()` until the corresponding API endpoints (POST, PUT, DELETE) are implemented in future modules.
 
 ### Stopping the Application
 
@@ -140,6 +167,45 @@ docker-compose down
 # To also remove volumes:
 docker-compose down -v
 ```
+
+## CI/CD
+
+### GitHub Actions Workflows
+
+Two workflows are configured for automated testing:
+
+**1. Basic API Tests** (`.github/workflows/test-bookstore.yml`)
+- Runs on push to main, module-2, module-2-ai-solution branches
+- Uses curl to test API endpoints
+- Validates book count and response structure
+- Generates test summary in workflow output
+
+**2. Playwright E2E Tests** (`.github/workflows/playwright-tests.yml`)
+- Comprehensive end-to-end testing with Playwright
+- Tests frontend UI and API integration
+- Captures screenshots and videos
+- Uploads test artifacts (reports, screenshots, videos)
+- Generates detailed test summary
+
+### Local GitHub Actions Testing
+
+You can run GitHub Actions workflows locally using [act](https://github.com/nektos/act):
+
+```bash
+# Install act (macOS)
+brew install act
+
+# Run workflows locally
+./scripts/run-github-actions-locally.sh
+
+# Run specific workflow
+./scripts/run-github-actions-locally.sh -w test-bookstore.yml
+
+# Show help
+./scripts/run-github-actions-locally.sh -h
+```
+
+See `scripts/README.md` for more information about local testing.
 
 ## Services
 
