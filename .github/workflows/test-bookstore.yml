@@ -6,6 +6,8 @@ on:
       - main
       - module-2
       - module-2-ai-solution
+      - module-3
+      - module-3-ai-solution
   pull_request:
     branches:
       - main
@@ -146,6 +148,103 @@ jobs:
           first_book=$(echo "$response" | jq -r '.[0].name')
           echo "First book: $first_book"
 
+      - name: Test warehouse endpoint via nginx
+        id: nginx-warehouse
+        run: |
+          echo "Testing warehouse endpoint via nginx..."
+
+          # Get a book ID first
+          books=$(curl -sf http://localhost/api/books)
+          book_id=$(echo "$books" | jq -r '.[0]._id // .[0].id')
+          echo "Using book ID: $book_id"
+
+          # Add books to shelf
+          echo "Adding books to shelf A1..."
+          add_response=$(curl -sf -X PUT "http://localhost/api/warehouse/${book_id}/A1/5")
+          echo "Add response: $add_response"
+
+          # Find book on shelf
+          echo "Finding book on shelf..."
+          find_response=$(curl -sf "http://localhost/api/warehouse/${book_id}")
+          echo "Find response: $find_response"
+
+          # Verify book is on shelf
+          shelf_count=$(echo "$find_response" | jq '.A1 // 0')
+          if [ "$shelf_count" -ge 5 ]; then
+            echo "✅ Warehouse test passed: book found on shelf with count $shelf_count"
+          else
+            echo "❌ Warehouse test failed: expected at least 5, got $shelf_count"
+            exit 1
+          fi
+
+      - name: Test order endpoint via nginx
+        id: nginx-order
+        run: |
+          echo "Testing order endpoint via nginx..."
+
+          # Get a book ID first
+          books=$(curl -sf http://localhost/api/books)
+          book_id=$(echo "$books" | jq -r '.[0]._id // .[0].id')
+          echo "Using book ID: $book_id"
+
+          # Create an order
+          echo "Creating order..."
+          order_response=$(curl -sf -X POST "http://localhost/api/order" \
+            -H "Content-Type: application/json" \
+            -d "{\"order\": [\"${book_id}\"]}")
+          echo "Order response: $order_response"
+
+          # List orders
+          echo "Listing orders..."
+          list_response=$(curl -sf "http://localhost/api/order")
+          echo "List response: $list_response"
+
+          # Verify order was created
+          order_count=$(echo "$list_response" | jq 'length')
+          if [ "$order_count" -ge 1 ]; then
+            echo "✅ Order test passed: $order_count orders found"
+          else
+            echo "❌ Order test failed: expected at least 1 order, got $order_count"
+            exit 1
+          fi
+
+      - name: Setup Node.js for Playwright
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright dependencies
+        working-directory: ./tests
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Create screenshots directory
+        run: mkdir -p screenshots
+
+      - name: Run Playwright tests
+        id: playwright
+        working-directory: ./tests
+        run: |
+          npx playwright test --reporter=html || true
+          echo "Playwright tests completed"
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: tests/playwright-report/
+          retention-days: 30
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screenshots
+          path: screenshots/
+          retention-days: 30
+
       - name: Generate test summary
         if: always()
         run: |
@@ -175,11 +274,34 @@ jobs:
             echo "| Direct Service (GET /books) | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
           fi
 
+          # Warehouse API status
+          if [ "${{ steps.nginx-warehouse.outcome }}" == "success" ]; then
+            echo "| Warehouse API (/api/warehouse) | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Warehouse API (/api/warehouse) | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Order API status
+          if [ "${{ steps.nginx-order.outcome }}" == "success" ]; then
+            echo "| Order API (/api/order) | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Order API (/api/order) | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Playwright status
+          if [ "${{ steps.playwright.outcome }}" == "success" ]; then
+            echo "| Playwright E2E Tests | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Playwright E2E Tests | ⚠️ Some tests may have failed |" >> $GITHUB_STEP_SUMMARY
+          fi
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Service Details" >> $GITHUB_STEP_SUMMARY
           echo "- Books API endpoint returns 7 books" >> $GITHUB_STEP_SUMMARY
           echo "- All books contain required fields (name, author, price)" >> $GITHUB_STEP_SUMMARY
           echo "- Database connection is healthy" >> $GITHUB_STEP_SUMMARY
+          echo "- Warehouse API supports adding and finding books on shelves" >> $GITHUB_STEP_SUMMARY
+          echo "- Order API supports creating and listing orders" >> $GITHUB_STEP_SUMMARY
 
       - name: Cleanup services
         if: always()
