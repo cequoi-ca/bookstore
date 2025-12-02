@@ -55,7 +55,7 @@ services:
       - MONGO_INITDB_DATABASE=bookstore
     volumes:
       - mongo-data:/data/db
-      - ./scripts:/docker-entrypoint-initdb.d:ro
+      - ./mongo/initdb:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')", "--quiet"]
       interval: 30s
